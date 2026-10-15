@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="format-detection" content="telephone=no">
+<meta name="robots" content="noindex">
+<title>相册</title>
+<!-- Swiper 11 (MIT, https://swiperjs.com) vendored locally so it loads inside WeChat without foreign CDNs -->
+<link rel="stylesheet" href="lib/swiper-bundle.min.css">
+<style>
+:root{--bg:#0e0d0c;--fg:#f4efe8;--muted:rgba(244,239,232,.62);--accent:#e8b9a0}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:var(--bg);color:var(--fg);overflow:hidden;
+  font-family:-apple-system,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif}
+.swiper{position:fixed;inset:0;width:100%;height:100%}
+.swiper-slide{overflow:hidden;background:var(--bg)}
+/* creative effect stacks every slide in place: only paint the active slide and its neighbours,
+   otherwise un-rastered tiles of the active slide show the slides stacked behind it */
+.swiper-slide:not(.swiper-slide-prev):not(.swiper-slide-active):not(.swiper-slide-next){visibility:hidden}
+/* photo page; backdrop is pre-blurred at build time (CSS blur on every slide exhausts GPU memory) */
+.bgblur{position:absolute;inset:0;background-size:cover;background-position:center}
+.photo{position:absolute;inset:0;overflow:hidden}
+/* size/position set by fit(): zoom in as far as possible without cropping any face */
+.photo img{position:absolute;left:0;top:0;max-width:none}
+.swiper-slide-active .photo img{animation:kb 7s ease-out forwards}
+.swiper-slide-active.alt .photo img{animation-name:kb2}
+@keyframes kb{from{transform:scale(1)}to{transform:scale(1.08) translate(-1%,-1%)}}
+@keyframes kb2{from{transform:scale(1.08) translate(1%,0)}to{transform:scale(1)}}
+.cap{position:absolute;left:0;right:0;bottom:0;padding:110px 26px calc(40px + env(safe-area-inset-bottom));
+  background:linear-gradient(transparent,rgba(0,0,0,.72));opacity:0;transform:translateY(12px);transition:all .9s .5s;
+  text-shadow:0 1px 6px rgba(0,0,0,.5)}
+.swiper-slide-active .cap{opacity:1;transform:none}
+.cap .d{font-size:17px;letter-spacing:2px;color:rgba(244,239,232,.85)}
+.cap .t{font-size:22px;margin-top:8px;line-height:1.6;font-family:"Songti SC","STSong",serif;letter-spacing:1px}
+/* text cards */
+.card{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 36px}
+.card > *{opacity:0;transform:translateY(16px);transition:all 1s}
+.swiper-slide-active.card > *{opacity:1;transform:none}
+.swiper-slide-active.card > :nth-child(2){transition-delay:.3s}
+.swiper-slide-active.card > :nth-child(3){transition-delay:.6s}
+.swiper-slide-active.card > :nth-child(4){transition-delay:.9s}
+.swiper-slide-active.card > :nth-child(5){transition-delay:1.2s}
+.card .y{font-size:80px;font-weight:200;letter-spacing:6px;font-family:"Didot","Songti SC",serif}
+.card .s{margin-top:18px;font-size:19px;color:rgba(244,239,232,.78);line-height:2;letter-spacing:2px}
+.card .line{width:44px;height:1px;background:var(--accent);margin:24px auto}
+.card .big{font-size:28px;line-height:2;font-family:"Songti SC","STSong",serif;letter-spacing:3px}
+.card .big.sm{font-size:23px}
+.card .days{font-size:58px;margin-top:10px}
+.card .grid{display:grid;grid-template-columns:repeat(6,1fr);gap:3px;width:100%;max-width:420px;margin-top:28px}
+.card .grid div{aspect-ratio:1;background-size:cover;background-position:center;border-radius:2px}
+/* chrome */
+.swiper-pagination-progressbar.swiper-pagination-vertical{left:auto;right:0;width:2px}
+.swiper-pagination-progressbar .swiper-pagination-progressbar-fill{background:rgba(255,255,255,.85)}
+#disc{position:fixed;top:calc(16px + env(safe-area-inset-top));right:14px;width:34px;height:34px;border-radius:50%;z-index:20;
+  border:1px solid rgba(255,255,255,.5);display:flex;align-items:center;justify-content:center;font-size:15px;background:rgba(0,0,0,.25)}
+#disc.play{animation:spin 4s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#arrow{position:fixed;left:50%;bottom:calc(10px + env(safe-area-inset-bottom));z-index:20;margin-left:-8px;width:16px;height:16px;
+  border-left:1px solid rgba(255,255,255,.5);border-top:1px solid rgba(255,255,255,.5);transform:rotate(45deg);animation:up 1.6s infinite;transition:opacity .6s}
+@keyframes up{0%{transform:translateY(6px) rotate(45deg);opacity:0}50%{opacity:1}100%{transform:translateY(-6px) rotate(45deg);opacity:0}}
+#pause{position:fixed;top:calc(22px + env(safe-area-inset-top));left:16px;z-index:20;font-size:14px;letter-spacing:3px;color:var(--muted);display:none}
+#pause.on{display:block}
+#cover{position:fixed;inset:0;z-index:30;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;
+  text-align:center;transition:opacity 1.2s;padding:0 32px}
+#cover .ph{width:230px;height:300px;background-size:cover;background-position:center;border:6px solid #f4efe8;box-shadow:0 14px 40px rgba(0,0,0,.6);transform:rotate(-3deg)}
+#cover h1{font-weight:300;font-size:36px;margin-top:44px;letter-spacing:6px;font-family:"Songti SC","STSong",serif}
+#cover p{color:rgba(244,239,232,.75);font-size:17px;margin-top:14px;letter-spacing:3px}
+#cover .tap{margin-top:52px;font-size:17px;letter-spacing:5px;color:var(--accent);animation:breathe 2.4s ease-in-out infinite}
+@keyframes breathe{50%{opacity:.35}}
+#cover.gone{opacity:0;pointer-events:none}
+/* lock screen: everything behind it is encrypted until the password has been entered */
+#lock{position:fixed;inset:0;z-index:40;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:0 32px;transition:opacity 1s}
+#lock.gone{opacity:0;pointer-events:none}
+#lock form{display:flex;flex-direction:column;align-items:center;width:100%;max-width:300px;visibility:hidden}
+#lock.ask form{visibility:visible}
+#lock .line{width:44px;height:1px;background:var(--accent);margin-bottom:44px}
+#pw{width:100%;background:none;border:0;border-bottom:1px solid rgba(244,239,232,.35);border-radius:0;-webkit-appearance:none;appearance:none;
+  color:var(--fg);font:26px/1 inherit;font-family:inherit;text-align:center;letter-spacing:10px;padding:10px 0;outline:none;transition:border-color .4s}
+#pw::placeholder{color:rgba(244,239,232,.3);font-size:15px;letter-spacing:5px}
+#pw:focus{border-bottom-color:var(--accent)}
+#go{margin-top:40px;background:none;border:1px solid rgba(232,185,160,.6);color:var(--accent);font-size:16px;letter-spacing:6px;
+  padding:11px 36px 11px 42px;border-radius:999px;font-family:inherit;transition:opacity .3s}
+#go:disabled,#pw:disabled{opacity:.4}
+#err{margin-top:22px;min-height:22px;font-size:14px;letter-spacing:2px;color:var(--muted);text-align:center;line-height:1.6}
+.shake{animation:shake .4s}
+@keyframes shake{20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-5px)}80%{transform:translateX(5px)}}
+</style>
+</head>
+<body>
+<div id="lock">
+  <form id="lockForm" autocomplete="off">
+    <div class="line"></div>
+    <input id="pw" type="password" placeholder="输入密码" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go" disabled>
+    <button id="go" type="submit" disabled>进入</button>
+    <div id="err"></div>
+  </form>
+</div>
+<div id="cover">
+  <div class="ph" id="coverPh"></div>
+  <h1 id="coverTitle"></h1>
+  <p id="coverSub"></p>
+  <div class="tap">轻触 · 打开</div>
+</div>
+<div class="swiper"><div class="swiper-wrapper" id="wrap"></div><div class="swiper-pagination"></div></div>
+<div id="disc">♪</div>
+<div id="pause">已暂停</div>
+<div id="arrow"></div>
+<audio id="bgm" loop preload="auto"></audio>
+<script src="lib/swiper-bundle.min.js"></script>
+<script>
+(function(){
+  'use strict';
+  var $ = function(id){ return document.getElementById(id); };
+  var KEYSTORE = 'album-key';   // localStorage: the derived key, so the album opens without retyping the password
+  var utf8 = function(s){ return new TextEncoder().encode(s); };
+  function b64d(s){ var b = atob(s), u = new Uint8Array(b.length); for (var i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return u; }
+  function b64e(buf){ var u = new Uint8Array(buf), s = ''; for (var i = 0; i < u.length; i++) s += String.fromCharCode(u[i]); return btoa(s); }
+  function report(e){ console.error(e); }
+
+  // ---- vault: encrypted blob -> blob: URL. Layout of every blob: 12-byte IV | AES-256-GCM ciphertext | 16-byte tag.
+  // Everything is fetched exactly once and decrypted exactly once; a failed fetch is forgotten so a retry can refetch.
+  var key = null, enc = {}, urls = {};
+  function fetchEnc(id){
+    return enc[id] || (enc[id] = fetch(id).then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status + ' ' + id); return r.arrayBuffer(); })
+      .catch(function(e){ delete enc[id]; throw e; }));
+  }
+  function decrypt(buf){ return crypto.subtle.decrypt({ name: 'AES-GCM', iv: new Uint8Array(buf, 0, 12) }, key, new Uint8Array(buf, 12)); }
+  function load(id, mime){
+    return urls[id] || (urls[id] = fetchEnc(id).then(decrypt).then(function(pt){ return URL.createObjectURL(new Blob([pt], { type: mime })); })
+      .catch(function(e){ delete urls[id]; throw e; }));
+  }
+  // password -> 256-bit master (PBKDF2-SHA256) -> AES-GCM key (HKDF-SHA256, info "album-enc"); mirrors tools/lib.mjs
+  async function deriveMaster(password, kdf){
+    var raw = await crypto.subtle.importKey('raw', utf8(password), 'PBKDF2', false, ['deriveBits']);
+    return crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: b64d(kdf.salt), iterations: kdf.iter }, raw, 256);
+  }
+  async function keyFromMaster(master){
+    var hk = await crypto.subtle.importKey('raw', master, 'HKDF', false, ['deriveKey']);
+    return crypto.subtle.deriveKey({ name: 'HKDF', hash: 'SHA-256', salt: new Uint8Array(0), info: utf8('album-enc') }, hk,
+      { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+  }
+
+  // ---- lock screen
+  var lock = $('lock'), form = $('lockForm'), inp = $('pw'), go = $('go'), err = $('err');
+  function say(msg){ err.textContent = msg; }
+  function ask(enabled){ lock.classList.add('ask'); inp.disabled = go.disabled = !enabled; }
+  function shake(){ form.classList.remove('shake'); void form.offsetWidth; form.classList.add('shake'); }
+  function wrongKey(e){ return !!e && e.name === 'OperationError'; }   // WebCrypto: GCM tag mismatch
+
+  async function main(){
+    if (!(window.crypto && crypto.subtle && window.fetch && window.TextEncoder)){ ask(false); say('请用较新的浏览器通过 HTTPS 打开'); return; }
+    var M;
+    try { var r = await fetch('manifest.json'); if (!r.ok) throw new Error('HTTP ' + r.status); M = await r.json(); }
+    catch (e){ ask(false); say('加载失败，请刷新重试'); report(e); return; }
+    if (M.v !== 1 || !M.kdf || M.kdf.alg !== 'PBKDF2-SHA256'){ ask(false); say('页面数据格式不支持'); return; }
+    fetchEnc(M.data); (M.preload || []).forEach(function(id){ fetchEnc(id).catch(report); });   // download while the password is typed
+
+    async function unlock(master){
+      key = await keyFromMaster(master);
+      return JSON.parse(new TextDecoder().decode(await decrypt(await fetchEnc(M.data))));   // wrong key -> OperationError
+    }
+    var saved = null;
+    try { saved = localStorage.getItem(KEYSTORE); } catch (e){}
+    if (saved){
+      try { return await start(await unlock(b64d(saved))); }
+      catch (e){
+        if (wrongKey(e)){ try { localStorage.removeItem(KEYSTORE); } catch (_){} }   // password was changed since: ask again
+        else { report(e); say('加载失败：' + (e.message || e)); }
+      }
+    }
+    ask(true); inp.focus();
+    form.addEventListener('submit', async function(ev){
+      ev.preventDefault();
+      var pw = inp.value;
+      if (!pw || inp.disabled) return;
+      ask(false); say('');
+      try {
+        var master = await deriveMaster(pw, M.kdf);
+        var D = await unlock(master);
+        try { localStorage.setItem(KEYSTORE, b64e(master)); } catch (e){}
+        await start(D);
+      } catch (e){
+        ask(true); shake();
+        if (wrongKey(e)) say('密码不对'); else { report(e); say('加载失败：' + (e.message || e)); }
+        inp.focus(); inp.select();
+      }
+    });
+  }
+  async function start(D){
+    var coverUrl = await load(D.files[D.cover], 'image/jpeg');   // prefetched during typing, so this is near-instant
+    document.title = D.title;
+    $('coverPh').style.backgroundImage = 'url("' + coverUrl + '")';
+    boot(D);
+    lock.classList.add('gone');
+    setTimeout(function(){ if (lock.parentNode) lock.parentNode.removeChild(lock); }, 1100);
+  }
+  main().catch(function(e){ ask(false); report(e); say('出错了：' + (e.message || e)); });
+
+  // ---- the album itself. D is the decrypted album.json; D.files maps each original path to its blob id.
+  function boot(D){
+    var bgm = $('bgm'), disc = $('disc');
+    function esc(s){ return String(s || '').replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+    function F(p){ var id = D.files[p]; if (!id) throw new Error('album.json has no blob for ' + p); return id; }
+
+    $('coverTitle').textContent = D.title;
+    $('coverSub').textContent = D.subtitle;
+
+    // pages: opening card, year cards between photos, ending card
+    var html = ['<div class="swiper-slide card" data-swiper-autoplay="4000"><div class="big">' + D.opening.map(esc).join('<br>') + '</div></div>'];
+    var lastYear = null;
+    D.photos.forEach(function(p, i){
+      var y = p.date.slice(0, 4);
+      if (y !== lastYear){ lastYear = y;
+        html.push('<div class="swiper-slide card" data-swiper-autoplay="3500"><div class="y">' + y + '</div><div class="line"></div><div class="s">' + esc(D.years[y]) + '</div></div>'); }
+      html.push('<div class="swiper-slide' + (i % 2 ? ' alt' : '') + '">' +
+        '<div class="bgblur" data-bg="' + esc(F(p.blur || p.thumb)) + '"></div>' +
+        '<div class="photo"><img data-i="' + i + '" data-src="' + esc(F(p.src)) + '" alt=""></div>' +
+        '<div class="cap"><div class="d">' + esc(p.date.replace(/-/g, '.')) + (p.place ? ' · ' + esc(p.place) : '') + '</div>' +
+        (p.text ? '<div class="t">' + esc(p.text) + '</div>' : '') + '</div></div>');
+    });
+    var thumbs = D.photos.slice(0, 36).map(function(p){ return '<div data-bg="' + esc(F(p.thumb)) + '"></div>'; }).join('');
+    html.push('<div class="swiper-slide card" data-swiper-autoplay="600000"><div class="s">从 ' + esc(D.first) + ' 到 ' + esc(D.last) + '</div>' +
+      '<div class="y days">' + D.days + ' 天</div><div class="line"></div>' +
+      '<div class="big sm">' + D.ending.map(esc).join('<br>') + '</div><div class="grid">' + thumbs + '</div></div>');
+    $('wrap').innerHTML = html.join('');
+
+    // Fill the screen: zoom between "contain" and "cover" as far as possible while every detected face
+    // (plus a margin) stays visible, then centre on the faces. Leftover space shows the blurred backdrop.
+    function fit(im){
+      var p = D.photos[+im.getAttribute('data-i')], w = p.wh[0], h = p.wh[1];
+      var vw = innerWidth, vh = innerHeight, f = p.face || [0, 0, 1, 1], m = 0.06;
+      var fx1 = Math.max(0, f[0] - m), fy1 = Math.max(0, f[1] - m), fx2 = Math.min(1, f[2] + m), fy2 = Math.min(1, f[3] + m);
+      var sContain = Math.min(vw / w, vh / h), sCover = Math.max(vw / w, vh / h);
+      var sFace = Math.min(vw / ((fx2 - fx1) * w), vh / ((fy2 - fy1) * h));
+      var s = Math.max(sContain, Math.min(sCover, sFace)), W = w * s, H = h * s;
+      var cx = (fx1 + fx2) / 2 * W, cy = (fy1 + fy2) / 2 * H;
+      var left = W > vw ? Math.min(0, Math.max(vw - W, vw / 2 - cx)) : (vw - W) / 2;
+      var top = H > vh ? Math.min(0, Math.max(vh - H, vh * 0.45 - cy)) : (vh - H) / 2;
+      im.style.width = W + 'px'; im.style.height = H + 'px';
+      im.style.left = left + 'px'; im.style.top = top + 'px';
+      im.style.transformOrigin = cx + 'px ' + cy + 'px';  // slow zoom pushes toward the faces
+    }
+    function fitAll(){ [].forEach.call(document.querySelectorAll('.photo img'), fit); }
+    fitAll();
+    addEventListener('resize', fitAll);
+    addEventListener('orientationchange', function(){ setTimeout(fitAll, 300); });
+
+    // fetch + decrypt photo and backdrop only for the active slide ±2 (all slides overlap, so native
+    // lazy-loading would fetch everything); the data-* attribute is removed so each blob is requested once
+    function warm(sw){
+      for (var k = sw.activeIndex - 1; k <= sw.activeIndex + 2; k++){
+        var s = sw.slides[k]; if (!s) continue;
+        [].forEach.call(s.querySelectorAll('[data-bg]'), function(b){
+          var id = b.getAttribute('data-bg'); b.removeAttribute('data-bg');
+          load(id, 'image/jpeg').then(function(u){ b.style.backgroundImage = 'url("' + u + '")'; }, report);
+        });
+        [].forEach.call(s.querySelectorAll('img[data-src]'), function(im){
+          var id = im.getAttribute('data-src'); im.removeAttribute('data-src');
+          load(id, 'image/jpeg').then(function(u){ im.src = u; }, report);
+        });
+      }
+    }
+
+    var swiper = new Swiper('.swiper', {
+      direction: 'vertical',
+      speed: 900,
+      effect: 'creative',
+      creativeEffect: {
+        prev: { shadow: true, translate: [0, '-20%', -1] },
+        next: { translate: [0, '100%', 0] }
+      },
+      keyboard: { enabled: false },
+      mousewheel: true,
+      pagination: { el: '.swiper-pagination', type: 'progressbar' },
+      autoplay: { delay: 5200, disableOnInteraction: false, stopOnLastSlide: true },
+      on: {
+        init: function(sw){ warm(sw); sw.autoplay.stop(); },
+        slideChange: function(sw){ warm(sw); $('arrow').style.opacity = sw.activeIndex === sw.slides.length - 1 ? 0 : 1; },
+        click: function(sw){
+          var paused = sw.autoplay.paused || !sw.autoplay.running;
+          if (sw.isEnd){ sw.slideTo(0, 0); sw.autoplay.start(); return; }
+          if (paused){ sw.autoplay.running ? sw.autoplay.resume() : sw.autoplay.start(); }
+          else sw.autoplay.pause();
+          $('pause').classList.toggle('on', !paused);
+        }
+      }
+    });
+
+    // music: decrypted into a blob: URL; if the cover was tapped before it arrived, start as soon as it does
+    var wantPlay = false;
+    function playMusic(){
+      if (!bgm.src){ wantPlay = true; return; }
+      disc.classList.add('play');
+      var p = bgm.play();
+      if (p && p.catch) p.catch(function(){ disc.classList.remove('play'); });   // blocked (e.g. iOS, no gesture): tapping the disc starts it
+    }
+    load(F(D.music), 'audio/mpeg').then(function(u){ bgm.src = u; bgm.load(); if (wantPlay) playMusic(); }, report);
+    // WeChat: prime audio inside its JS bridge so the first tap can start it
+    document.addEventListener('WeixinJSBridgeReady', function(){ bgm.load(); }, false);
+    $('cover').addEventListener('click', function(){
+      if (this.classList.contains('gone')) return;
+      swiper.update(); fitAll(); warm(swiper);  // re-measure in case the page was laid out while hidden / zero-sized
+      playMusic(); this.classList.add('gone'); swiper.autoplay.start();
+    });
+    disc.addEventListener('click', function(){ if (bgm.paused) playMusic(); else { bgm.pause(); disc.classList.remove('play'); } });
+    // arrow keys: ←/↑ previous, →/↓ next; any arrow, Enter or Space opens the cover
+    document.addEventListener('keydown', function(e){
+      var cover = $('cover'), k = e.key;
+      var prev = k === 'ArrowLeft' || k === 'ArrowUp' || k === 'PageUp';
+      var next = k === 'ArrowRight' || k === 'ArrowDown' || k === 'PageDown';
+      if (!cover.classList.contains('gone')){
+        if (prev || next || k === 'Enter' || k === ' '){ e.preventDefault(); cover.click(); }
+        return;
+      }
+      if (prev){ e.preventDefault(); swiper.slidePrev(); }
+      else if (next){ e.preventDefault(); swiper.slideNext(); }
+    });
+    document.addEventListener('visibilitychange', function(){
+      if (document.hidden && !bgm.paused){ bgm.pause(); disc.classList.remove('play'); }
+      if (!document.hidden){ swiper.update(); fitAll(); }
+    });
+  }
+})();
+</script>
+</body>
+</html>

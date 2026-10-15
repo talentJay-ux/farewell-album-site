@@ -1,0 +1,19 @@
+{
+ "v": 1,
+ "kdf": {
+  "alg": "PBKDF2-SHA256",
+  "iter": 600000,
+  "salt": "7lQXdQDdma0s353maQ2Hyg=="
+ },
+ "data": "b/b83a0b25f3995a68a7a2da3a.bin",
+ "preload": [
+  "b/8f55d080dbd73d9caacb6a70.bin",
+  "b/0537f69d8ccb1213eb9aee09.bin",
+  "b/d058a70728e4c965396f8770.bin",
+  "b/1b7732015d1b6be64e718137.bin",
+  "b/49c9e3126e1053b1e1b3390d.bin",
+  "b/5f7c575825a74e821189495f.bin",
+  "b/78ef5ef1779508c3c09f6453.bin",
+  "b/90f8ad871486d7a4fba27643.bin"
+ ]
+}
